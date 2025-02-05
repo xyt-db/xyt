@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/xyt-db/xyt/server";
+
+package server;
+
+service Xyt {
+  rpc AddSchema(Schema) returns (google.protobuf.Empty) {}
+  rpc Insert(stream Record) returns (google.protobuf.Empty) {}
+  rpc Select(Query) returns (stream Record) {}
+
+  rpc Version(google.protobuf.Empty) returns (VersionMessage) {}
+}
+
+message Schema {
+  string dataset = 1;
+
+  sint32 x_min = 2;
+  sint32 x_max = 3;
+  sint32 y_min = 4;
+  sint32 y_max = 5;
+}
+
+message Query {
+  string dataset = 1;
+
+  sint32 x_min = 2;
+  sint32 x_max = 3;
+  sint32 y_min = 4;
+  sint32 y_max = 5;
+  sint32 t_min = 6;
+  sint32 t_max = 7;
+
+  google.protobuf.Timestamp from = 8;
+  google.protobuf.Timestamp until = 9;
+
+  string index_key = 10;
+  string index_value = 11;
+}
+
+// A Record is a specific reading for a set of X,Y coordinates and
+// a theta representing aspect.
+//
+// Alongside this, a Record includes metadata values and a float representing
+// an actual value
+message Record {
+  Metadata meta = 6;
+
+  sint32 X = 1;
+  sint32 Y = 2;
+  sint32 T = 3;
+
+  // a Dataset is analogous to a database and is best thought of as
+  // a specific location to be mapped, alongside a specific purpose.
+  //
+  // For a racing bike it might be the race course
+  //
+  // For an autonomous robot it might be a particular warehouse
+  //
+  // Ultimately, it provides some context toward what a X, Y, T value
+  // actually means in practice
+  string dataset = 4;
+
+  // Value represents the actual value this record represents
+  sint64 value = 5;
+
+  // Name provides context for what a value is for
+  string name = 7;
+}
+
+message Metadata {
+  // When is a pointer for when a Record is for; what that specifically
+  // means (when the value was captured, the start of capture, when the
+  // data was calculated, whatever) for a given dataset is up to the
+  // client
+  google.protobuf.Timestamp when = 1;
+
+  // Labels are arbitrary key/values; they are not indexed and so can
+  // be as unique or wide ranging or as wacky as you want... go nuts
+  map<string, string> labels = 2;
+
+  // Indices are used to provide filtering and so come slighly more
+  // expensively than labels.
+  //
+  // Beware the wrath of the cardinality gods
+  map<string, string> indices = 3;
+}
+
+// Version holds contains data pertaining to the version
+// of xyt which is running
+message VersionMessage {
+  string ref = 1;
+  string build_user = 2;
+
+  // We store this as a string, rather than a datetime, because
+  // we never need to do anything clever with it, beyond showing it
+  string built_on = 3;
+}
