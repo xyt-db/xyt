@@ -21,7 +21,19 @@ THE SOFTWARE.
 */
 package main
 
-import "github.com/xyt-db/xyt/cmd/cmd"
+import (
+	"github.com/xyt-db/xyt/cmd/cmd"
+)
+
+var (
+	ref, buildUser, builtOn string
+)
+
+func init() {
+	cmd.Ref = ref
+	cmd.BuildUser = buildUser
+	cmd.BuiltOn = builtOn
+}
 
 func main() {
 	cmd.Execute()

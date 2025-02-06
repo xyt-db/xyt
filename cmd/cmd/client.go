@@ -66,12 +66,17 @@ func newClient(addr string) (c client, err error) {
 }
 
 func (c client) addSchema(name string, xmin, xmax, ymin, ymax int32) (err error) {
+	// Create a semi-optimised schema; it doesn't have to be awesome,
+	// there are other ways of doing that
 	_, err = c.AddSchema(context.Background(), &server.Schema{
-		Dataset: name,
-		XMin:    xmin,
-		XMax:    xmax,
-		YMin:    ymin,
-		YMax:    ymax,
+		Dataset:             name,
+		XMin:                xmin,
+		XMax:                xmax,
+		YMin:                ymin,
+		YMax:                ymax,
+		Frequency:           server.Frequency_F100Hz,
+		SortOnInsert:        true,
+		LazyInitialAllocate: true,
 	})
 
 	return
@@ -137,4 +142,13 @@ func (c client) query(dataset string) (err error) {
 
 		fmt.Printf("%#v\n", record)
 	}
+}
+
+func (c client) version() (ref, user, when string, err error) {
+	v, err := c.Version(context.Background(), nil)
+	if err != nil {
+		return
+	}
+
+	return v.Ref, v.BuildUser, v.BuiltOn, nil
 }

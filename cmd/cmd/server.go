@@ -152,3 +152,11 @@ func (s *Server) Select(q *server.Query, ss grpc.ServerStreamingServer[server.Re
 
 	return
 }
+
+func (s *Server) Version(context.Context, *emptypb.Empty) (*server.VersionMessage, error) {
+	return &server.VersionMessage{
+		Ref:       Ref,
+		BuildUser: BuildUser,
+		BuiltOn:   BuiltOn,
+	}, nil
+}
