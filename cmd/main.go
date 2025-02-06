@@ -21,7 +21,7 @@ THE SOFTWARE.
 */
 package main
 
-import "github.com/xyt-db/xyt/cmd"
+import "github.com/xyt-db/xyt/cmd/cmd"
 
 func main() {
 	cmd.Execute()
