@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"context"
+	"io"
 	"net"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -113,6 +114,10 @@ func (s *Server) Insert(cs grpc.ClientStreamingServer[server.Record, emptypb.Emp
 	for {
 		record, err = cs.Recv()
 		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+
 			return
 		}
 
@@ -121,7 +126,10 @@ func (s *Server) Insert(cs grpc.ClientStreamingServer[server.Record, emptypb.Emp
 			return
 		}
 
-		cs.SendMsg(new(emptypb.Empty))
+		err = cs.SendMsg(new(emptypb.Empty))
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -134,6 +142,10 @@ func (s *Server) Select(q *server.Query, ss grpc.ServerStreamingServer[server.Re
 	for _, record := range records {
 		err = ss.Send(record)
 		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+
 			return
 		}
 	}

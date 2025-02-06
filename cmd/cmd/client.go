@@ -23,7 +23,9 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 	"github.com/xyt-db/xyt/server"
@@ -96,7 +98,9 @@ func (c client) insert(dataset, name string, value int64, x, y, t int32) (err er
 		return
 	}
 
-	return cc.CloseSend()
+	_, err = cc.CloseAndRecv()
+
+	return
 }
 
 func (c client) query(dataset string) (err error) {
@@ -107,15 +111,30 @@ func (c client) query(dataset string) (err error) {
 		return
 	}
 
+	defer func() {
+		cerr := cs.CloseSend()
+
+		switch err {
+		case nil:
+			err = cerr
+		default:
+			if cerr != nil {
+				err = errors.Join(err, cerr)
+			}
+		}
+	}()
+
 	var record *server.Record
 	for {
 		record, err = cs.Recv()
 		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+
 			return
 		}
 
 		fmt.Printf("%#v\n", record)
 	}
-
-	return cs.CloseSend()
 }
