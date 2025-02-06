@@ -62,7 +62,12 @@ func (d *Database) CreateDataset(s *server.Schema) (err error) {
 			d.data[s.Dataset][xi][yi] = make([][]*server.Record, 360)
 
 			for ti := range d.data[s.Dataset][xi][yi] {
-				d.data[s.Dataset][xi][yi][ti] = make([]*server.Record, 0, frequencyToSize(s.Frequency))
+				switch s.LazyInitialAllocate {
+				case true:
+					d.data[s.Dataset][xi][yi][ti] = make([]*server.Record, 0)
+				default:
+					d.data[s.Dataset][xi][yi][ti] = make([]*server.Record, 0, frequencyToSize(s.Frequency))
+				}
 			}
 		}
 	}
@@ -83,7 +88,7 @@ func (d *Database) InsertRecord(r *server.Record) (err error) {
 	// and instead do allocations roughly once per second- which is at least more predictable
 	schema := d.schemata[r.Dataset]
 
-	if len(d.data[r.Dataset][r.X][r.Y][r.T]) == cap(d.data[r.Dataset][r.X][r.Y][r.T]) {
+	if len(d.data[r.Dataset][r.X][r.Y][r.T]) <= cap(d.data[r.Dataset][r.X][r.Y][r.T]) {
 		d.data[r.Dataset][r.X][r.Y][r.T] = slices.Grow(d.data[r.Dataset][r.X][r.Y][r.T], frequencyToSize(schema.Frequency))
 	}
 

@@ -39,6 +39,14 @@ message Schema {
   //
   // Thus, a tradeoff needs making by the user
   bool sort_on_insert = 7;
+
+  // LazyInitialAllocate disables pre-allocating every single X,Y,T coordinate
+  // on initialisation, which can help with startup time and memory usage.
+  //
+  // Of course, if you expect to cover every possible location on the coords
+  // map, with a high range of different theta values, then you want to set
+  // this to false so performance is predictable
+  bool lazy_initial_allocate = 8;
 }
 
 message Query {

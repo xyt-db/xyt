@@ -36,11 +36,13 @@ func TestDatabase_Add(t *testing.T) {
 			}
 
 			err = d.CreateDataset(&server.Schema{
-				Dataset: "site-a",
-				XMin:    0,
-				XMax:    10,
-				YMin:    0,
-				YMax:    10,
+				Dataset:      "site-a",
+				XMin:         0,
+				XMax:         10,
+				YMin:         0,
+				YMax:         10,
+				Frequency:    server.Frequency_F10000Hz,
+				SortOnInsert: true,
 			})
 
 			err = d.InsertRecord(test.record)
@@ -63,11 +65,12 @@ func TestDatabase_CreateDataset(t *testing.T) {
 	// Create an initial dataset so we can test dulpicate dataset names
 	// fail
 	d.CreateDataset(&server.Schema{
-		Dataset: "site-a",
-		XMin:    0,
-		XMax:    10,
-		YMin:    0,
-		YMax:    10,
+		Dataset:   "site-a",
+		XMin:      0,
+		XMax:      10,
+		YMin:      0,
+		YMax:      10,
+		Frequency: server.Frequency_F100Hz,
 	})
 
 	for _, test := range []struct {
@@ -187,11 +190,13 @@ func benchmarkCreateDataset(i int32, b *testing.B) {
 
 	for j := 0; j < b.N; j++ {
 		d.CreateDataset(&server.Schema{
-			Dataset: "site-a",
-			XMin:    0,
-			XMax:    i,
-			YMin:    0,
-			YMax:    i,
+			Dataset:             "site-a",
+			XMin:                0,
+			XMax:                i,
+			YMin:                0,
+			YMax:                i,
+			LazyInitialAllocate: true,
+			Frequency:           server.Frequency_F100Hz,
 		})
 
 	}
@@ -214,12 +219,13 @@ func benchmarkInsertRecord(i int, b *testing.B) {
 	}
 
 	err = d.CreateDataset(&server.Schema{
-		Dataset:   "site-a",
-		XMin:      0,
-		XMax:      10,
-		YMin:      0,
-		YMax:      10,
-		Frequency: server.Frequency_F1000Hz,
+		Dataset:             "site-a",
+		XMin:                0,
+		XMax:                10,
+		YMin:                0,
+		YMax:                10,
+		Frequency:           server.Frequency_F1000Hz,
+		LazyInitialAllocate: true,
 	})
 
 	ts := timestamppb.Now()
