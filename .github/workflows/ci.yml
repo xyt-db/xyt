@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '*'
+    tags:
+      - '*'
+
+permissions: read-all
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4.1.1
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version: '>=1.24.0'
+
+    - name: Build
+      run: |
+        make
+
+    - name: Test
+      run: |
+        go test -covermode=count -coverprofile=coverage.out -v ./...
+
+    - name: gosec
+      run: |
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
+        gosec ./...
+
+    - name: golangci-lint
+      run: |
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        golangci-lint run --skip-files='.*_test.go'
