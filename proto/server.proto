@@ -15,13 +15,30 @@ service Xyt {
   rpc Version(google.protobuf.Empty) returns (VersionMessage) {}
 }
 
+enum Frequency {
+  F1Hz = 0;
+  F100Hz = 1;
+  F1000Hz = 2;
+  F10000Hz = 3;
+}
+
 message Schema {
   string dataset = 1;
+  Frequency frequency = 2;
 
-  sint32 x_min = 2;
-  sint32 x_max = 3;
-  sint32 y_min = 4;
-  sint32 y_max = 5;
+  sint32 x_min = 3;
+  sint32 x_max = 4;
+  sint32 y_min = 5;
+  sint32 y_max = 6;
+
+  // SortOnInsert greatly speeds up querying based on timestamp because
+  // it avoids a full scan of a pose just to find matching records.
+  //
+  // However, for high frequency inserts it adds a comparatively significant
+  // amount of time to writes.
+  //
+  // Thus, a tradeoff needs making by the user
+  bool sort_on_insert = 7;
 }
 
 message Query {
@@ -65,7 +82,7 @@ message Record {
   string dataset = 4;
 
   // Value represents the actual value this record represents
-  sint64 value = 5;
+  double value = 5;
 
   // Name provides context for what a value is for
   string name = 7;

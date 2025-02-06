@@ -77,7 +77,7 @@ func (c client) addSchema(name string, xmin, xmax, ymin, ymax int32) (err error)
 	return
 }
 
-func (c client) insert(dataset, name string, value int64, x, y, t int32) (err error) {
+func (c client) insert(dataset, name string, value float64, x, y, t int32) (err error) {
 	cc, err := c.Insert(context.Background())
 	if err != nil {
 		return

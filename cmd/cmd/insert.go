@@ -57,7 +57,7 @@ var insertCmd = &cobra.Command{
 			}
 		}
 
-		value, err := cmd.Flags().GetInt64("value")
+		value, err := cmd.Flags().GetFloat64("value")
 		if err != nil {
 			return
 		}
@@ -71,7 +71,7 @@ func init() {
 
 	insertCmd.Flags().String("dataset", "", "The dataset name for this metric")
 	insertCmd.Flags().String("name", "", "The name of this metric")
-	insertCmd.Flags().Int64("value", 0, "The value of this metric")
+	insertCmd.Flags().Float64("value", 0, "The value of this metric")
 	insertCmd.Flags().Int32("x", 0, "The X position")
 	insertCmd.Flags().Int32("y", 0, "The Y position")
 	insertCmd.Flags().Int32("t", 0, "The Theta position (in degs)")

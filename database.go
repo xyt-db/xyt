@@ -45,12 +45,12 @@ func (d *Database) CreateDataset(s *server.Schema) (err error) {
 		return
 	}
 
-	d.mutx.Lock()
-	defer d.mutx.Unlock()
-
 	if _, ok := d.data[s.Dataset]; ok {
 		return DuplicateDatasetError
 	}
+
+	d.mutx.Lock()
+	defer d.mutx.Unlock()
 
 	d.schemata[s.Dataset] = s
 
@@ -62,7 +62,7 @@ func (d *Database) CreateDataset(s *server.Schema) (err error) {
 			d.data[s.Dataset][xi][yi] = make([][]*server.Record, 360)
 
 			for ti := range d.data[s.Dataset][xi][yi] {
-				d.data[s.Dataset][xi][yi][ti] = make([]*server.Record, 0)
+				d.data[s.Dataset][xi][yi][ti] = make([]*server.Record, 0, frequencyToSize(s.Frequency))
 			}
 		}
 	}
@@ -79,10 +79,21 @@ func (d *Database) InsertRecord(r *server.Record) (err error) {
 	d.mutx.Lock()
 	defer d.mutx.Unlock()
 
+	// Ensure we have enough space allocated to avoid re-allocating on every write
+	// and instead do allocations roughly once per second- which is at least more predictable
+	schema := d.schemata[r.Dataset]
+
+	if len(d.data[r.Dataset][r.X][r.Y][r.T]) == cap(d.data[r.Dataset][r.X][r.Y][r.T]) {
+		d.data[r.Dataset][r.X][r.Y][r.T] = slices.Grow(d.data[r.Dataset][r.X][r.Y][r.T], frequencyToSize(schema.Frequency))
+	}
+
 	d.data[r.Dataset][r.X][r.Y][r.T] = append(d.data[r.Dataset][r.X][r.Y][r.T], r)
-	slices.SortFunc(d.data[r.Dataset][r.X][r.Y][r.T], func(a, b *server.Record) int {
-		return a.Meta.When.AsTime().Compare(b.Meta.When.AsTime())
-	})
+
+	if schema.SortOnInsert {
+		slices.SortFunc(d.data[r.Dataset][r.X][r.Y][r.T], func(a, b *server.Record) int {
+			return a.Meta.When.AsTime().Compare(b.Meta.When.AsTime())
+		})
+	}
 
 	if _, ok := d.fields[r.Dataset]; !ok {
 		d.fields[r.Dataset] = make(map[string]interface{})
@@ -146,7 +157,11 @@ func (d *Database) RetrieveRecords(q *server.Query) (r []*server.Record, err err
 					}
 
 					if ts.After(end) {
-						goto next
+						if schema.SortOnInsert {
+							goto next
+						}
+
+						continue
 					}
 
 					r = append(r, record)
@@ -232,4 +247,22 @@ func (d *Database) validateSchema(s *server.Schema) error {
 	}
 
 	return nil
+}
+
+func frequencyToSize(f server.Frequency) int {
+	switch f {
+	case server.Frequency_F1Hz:
+		return 1
+
+	case server.Frequency_F100Hz:
+		return 100
+
+	case server.Frequency_F1000Hz:
+		return 1_000
+
+	case server.Frequency_F10000Hz:
+		return 10_000
+	}
+
+	return 1
 }
