@@ -245,3 +245,60 @@ func benchmarkInsertRecord(i int, b *testing.B) {
 
 	}
 }
+
+func BenchmarkDatabase_Query1(b *testing.B)   { benchmarkQuery(1, b) }
+func BenchmarkDatabase_Query2(b *testing.B)   { benchmarkQuery(2, b) }
+func BenchmarkDatabase_Query4(b *testing.B)   { benchmarkQuery(4, b) }
+func BenchmarkDatabase_Query8(b *testing.B)   { benchmarkQuery(8, b) }
+func BenchmarkDatabase_Query16(b *testing.B)  { benchmarkQuery(16, b) }
+func BenchmarkDatabase_Query32(b *testing.B)  { benchmarkQuery(32, b) }
+func BenchmarkDatabase_Query64(b *testing.B)  { benchmarkQuery(64, b) }
+func BenchmarkDatabase_Query128(b *testing.B) { benchmarkQuery(128, b) }
+func BenchmarkDatabase_Query256(b *testing.B) { benchmarkQuery(256, b) }
+
+func benchmarkQuery(i int, b *testing.B) {
+	d, err := New()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	err = d.CreateDataset(&server.Schema{
+		Dataset:             "site-a",
+		XMin:                0,
+		XMax:                10,
+		YMin:                0,
+		YMax:                10,
+		Frequency:           server.Frequency_F1000Hz,
+		LazyInitialAllocate: true,
+	})
+
+	ts := time.Now()
+	from := timestamppb.New(ts.Add(-time.Minute))
+	to := timestamppb.New(ts.Add(time.Minute))
+
+	d.InsertRecord(&server.Record{
+		Meta: &server.Metadata{
+			When: timestamppb.New(ts),
+		},
+		Dataset: "site-a",
+		Name:    "a-value",
+		Value:   100,
+		X:       5,
+		Y:       5,
+		T:       180,
+	})
+
+	for j := 0; j < b.N*i; j++ {
+		d.RetrieveRecords(&server.Query{
+			Dataset: "site-a",
+			XMin:    4,
+			XMax:    6,
+			YMin:    4,
+			YMax:    6,
+			TMin:    0,
+			TMax:    360,
+			From:    from,
+			Until:   to,
+		})
+	}
+}
