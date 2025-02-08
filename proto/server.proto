@@ -40,7 +40,7 @@ message Schema {
   // Thus, a tradeoff needs making by the user
   bool sort_on_insert = 7;
 
-  // LazyInitialAllocate disables pre-allocating every single X,Y,T coordinate
+  // LazyInitialAllocate disables pre-allocating every single X,Y coordinate
   // on initialisation, which can help with startup time and memory usage.
   //
   // Of course, if you expect to cover every possible location on the coords
@@ -52,18 +52,35 @@ message Schema {
 message Query {
   string dataset = 1;
 
-  sint32 x_min = 2;
-  sint32 x_max = 3;
-  sint32 y_min = 4;
-  sint32 y_max = 5;
-  sint32 t_min = 6;
-  sint32 t_max = 7;
+  oneof x {
+    bool x_all = 12;
+    sint32 x_value = 2;
+    QueryRange x_range = 3;
+  }
+
+  oneof y {
+    bool y_all = 13;
+    sint32 y_value = 4;
+    QueryRange y_range = 5;
+  }
+
+  oneof t {
+    bool t_all = 14;
+    sint32 t_value = 6;
+    QueryRange t_range = 7;
+  }
+
 
   google.protobuf.Timestamp from = 8;
   google.protobuf.Timestamp until = 9;
 
   string index_key = 10;
   string index_value = 11;
+}
+
+message QueryRange {
+  sint32 start = 1;
+  sint32 end = 2;
 }
 
 // A Record is a specific reading for a set of X,Y coordinates and

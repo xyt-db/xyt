@@ -161,10 +161,20 @@ func TestDatabase_RetrieveRecords(t *testing.T) {
 		{"Nil Query errors", nil, 0, true},
 		{"Missing Dataset errors", &server.Query{}, 0, true},
 		{"Unknown Dataset errors", &server.Query{Dataset: "site-b"}, 0, true},
-		{"Selecting a single column only returns that column", &server.Query{Dataset: "site-a", XMin: 3, XMax: 4}, 10, false},
 		{"Empty query returns all data", &server.Query{Dataset: "site-a"}, 100, false},
 		{"Setting end after time after the start returns nothing", &server.Query{Dataset: "site-a", From: timestamppb.Now()}, 0, false},
 		{"Setting the end time before data's added returns nothing", &server.Query{Dataset: "site-a", Until: timestamppb.New(start)}, 0, false},
+		{"Selecting a single column only returns that column", &server.Query{Dataset: "site-a", X: &server.Query_XValue{XValue: 3}}, 10, false},
+		{"Querying an X range returns a subset of data", &server.Query{Dataset: "site-a", X: &server.Query_XRange{XRange: &server.QueryRange{Start: 3, End: 5}}}, 20, false},
+		{"Querying the whole X range returns all data", &server.Query{Dataset: "site-a", X: &server.Query_XAll{}}, 100, false},
+		{"Selecting a single row only returns that row", &server.Query{Dataset: "site-a", Y: &server.Query_YValue{YValue: 3}}, 10, false},
+		{"Querying a r range returns a subset of data", &server.Query{Dataset: "site-a", Y: &server.Query_YRange{YRange: &server.QueryRange{Start: 3, End: 5}}}, 20, false},
+		{"Querying the whole Y range returns all data", &server.Query{Dataset: "site-a", Y: &server.Query_YAll{}}, 100, false},
+		{"Selecting a single theta value with data returns all that data", &server.Query{Dataset: "site-a", T: &server.Query_TValue{TValue: 90}}, 100, false},
+		{"Selecting a single theta value with no data returns nothing", &server.Query{Dataset: "site-a", T: &server.Query_TValue{TValue: 91}}, 0, false},
+		{"Querying a theta range returns matching data", &server.Query{Dataset: "site-a", T: &server.Query_TRange{TRange: &server.QueryRange{Start: 0, End: 180}}}, 100, false},
+		{"Querying the whole theta range returns all data", &server.Query{Dataset: "site-a", T: &server.Query_TAll{}}, 100, false},
+		{"Querying a single location for all thetas returns a single value", &server.Query{Dataset: "site-a", X: &server.Query_XValue{XValue: 3}, Y: &server.Query_YValue{YValue: 3}}, 1, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			records, err := d.RetrieveRecords(test.query)
@@ -320,12 +330,9 @@ func benchmarkQuery(i int32, b *testing.B) {
 	for j := 0; j < b.N; j++ {
 		d.RetrieveRecords(&server.Query{
 			Dataset: "site-a",
-			XMin:    4,
-			XMax:    6,
-			YMin:    4,
-			YMax:    6,
-			TMin:    0,
-			TMax:    360,
+			X:       new(server.Query_XAll),
+			Y:       new(server.Query_YAll),
+			T:       new(server.Query_TAll),
 			From:    from,
 			Until:   to,
 		})

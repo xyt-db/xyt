@@ -128,17 +128,9 @@ func (d *Database) RetrieveRecords(q *server.Query) (r []*server.Record, err err
 
 	schema := d.schemata[q.Dataset]
 
-	xMin := q.XMin
-	xMax := q.XMax
-	if xMax == 0 {
-		xMax = schema.XMax
-	}
-
-	yMin := q.YMin
-	yMax := q.YMax
-	if yMax == 0 {
-		yMax = schema.YMax
-	}
+	xMin, xMax := xRange(schema, q)
+	yMin, yMax := yRange(schema, q)
+	tMin, tMax := tRange(schema, q)
 
 	r = make([]*server.Record, 0)
 
@@ -155,6 +147,10 @@ func (d *Database) RetrieveRecords(q *server.Query) (r []*server.Record, err err
 						goto next
 					}
 
+					continue
+				}
+
+				if record.T < tMin || record.T >= tMax {
 					continue
 				}
 
@@ -245,9 +241,6 @@ func (d *Database) validateSchema(s *server.Schema) error {
 
 func frequencyToSize(f server.Frequency) int {
 	switch f {
-	case server.Frequency_F1Hz:
-		return 1
-
 	case server.Frequency_F100Hz:
 		return 100
 
@@ -256,7 +249,57 @@ func frequencyToSize(f server.Frequency) int {
 
 	case server.Frequency_F10000Hz:
 		return 10_000
-	}
 
-	return 1
+	default:
+		return 1
+	}
+}
+
+func xRange(s *server.Schema, q *server.Query) (min, max int32) {
+	switch v := q.X.(type) {
+	case *server.Query_XAll:
+		return s.XMin, s.XMax
+
+	case *server.Query_XValue:
+		return v.XValue, v.XValue + 1
+
+	case *server.Query_XRange:
+		return v.XRange.Start, v.XRange.End
+
+	default:
+		return s.XMin, s.XMax
+
+	}
+}
+
+func yRange(s *server.Schema, q *server.Query) (min, may int32) {
+	switch v := q.Y.(type) {
+	case *server.Query_YAll:
+		return s.YMin, s.YMax
+
+	case *server.Query_YValue:
+		return v.YValue, v.YValue + 1
+
+	case *server.Query_YRange:
+		return v.YRange.Start, v.YRange.End
+
+	default:
+		return s.YMin, s.YMax
+	}
+}
+
+func tRange(s *server.Schema, q *server.Query) (min, mat int32) {
+	switch v := q.T.(type) {
+	case *server.Query_TAll:
+		return 0, 360
+
+	case *server.Query_TValue:
+		return v.TValue, v.TValue + 1
+
+	case *server.Query_TRange:
+		return v.TRange.Start, v.TRange.End
+
+	default:
+		return 0, 360
+	}
 }
