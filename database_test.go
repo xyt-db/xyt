@@ -1,11 +1,21 @@
 package xyt
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/xyt-db/xyt/server"
 	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+// rseed is used to seed the random generator; we want the same seed
+// each time, ideally, so we can nvestigate errors
+const rseed int64 = 2144610006738168
+
+var (
+	r     = rand.New(rand.NewSource(rseed))
+	chars = []byte{'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.', ','}
 )
 
 func TestDatabase_Add(t *testing.T) {
@@ -190,9 +200,16 @@ func benchmarkCreateDataset(i int32, b *testing.B) {
 		b.Fatal(err)
 	}
 
+	names := make([]string, b.N)
+	for idx := range names {
+		names[idx] = randomStr()
+	}
+
+	b.ResetTimer()
+
 	for j := 0; j < b.N; j++ {
 		d.CreateDataset(&server.Schema{
-			Dataset:             "site-a",
+			Dataset:             names[j],
 			XMin:                0,
 			XMax:                i * 10,
 			YMin:                0,
@@ -313,4 +330,12 @@ func benchmarkQuery(i int32, b *testing.B) {
 			Until:   to,
 		})
 	}
+}
+
+func randomStr() (s string) {
+	for i := 0; i < 16; i++ {
+		s += string(chars[r.Int()%len(chars)])
+	}
+
+	return
 }
