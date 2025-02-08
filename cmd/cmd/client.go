@@ -152,3 +152,7 @@ func (c client) version() (ref, user, when string, err error) {
 
 	return v.Ref, v.BuildUser, v.BuiltOn, nil
 }
+
+func (c client) stats() (s *server.StatsMessage, err error) {
+	return c.Stats(context.Background(), nil)
+}

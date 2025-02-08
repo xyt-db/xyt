@@ -20,6 +20,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	Xyt_Stats_FullMethodName     = "/server.Xyt/Stats"
 	Xyt_AddSchema_FullMethodName = "/server.Xyt/AddSchema"
 	Xyt_Insert_FullMethodName    = "/server.Xyt/Insert"
 	Xyt_Select_FullMethodName    = "/server.Xyt/Select"
@@ -30,6 +31,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type XytClient interface {
+	Stats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StatsMessage, error)
 	AddSchema(ctx context.Context, in *Schema, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Insert(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[Record, emptypb.Empty], error)
 	Select(ctx context.Context, in *Query, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Record], error)
@@ -42,6 +44,16 @@ type xytClient struct {
 
 func NewXytClient(cc grpc.ClientConnInterface) XytClient {
 	return &xytClient{cc}
+}
+
+func (c *xytClient) Stats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StatsMessage, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StatsMessage)
+	err := c.cc.Invoke(ctx, Xyt_Stats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *xytClient) AddSchema(ctx context.Context, in *Schema, opts ...grpc.CallOption) (*emptypb.Empty, error) {
@@ -100,6 +112,7 @@ func (c *xytClient) Version(ctx context.Context, in *emptypb.Empty, opts ...grpc
 // All implementations must embed UnimplementedXytServer
 // for forward compatibility.
 type XytServer interface {
+	Stats(context.Context, *emptypb.Empty) (*StatsMessage, error)
 	AddSchema(context.Context, *Schema) (*emptypb.Empty, error)
 	Insert(grpc.ClientStreamingServer[Record, emptypb.Empty]) error
 	Select(*Query, grpc.ServerStreamingServer[Record]) error
@@ -114,6 +127,9 @@ type XytServer interface {
 // pointer dereference when methods are called.
 type UnimplementedXytServer struct{}
 
+func (UnimplementedXytServer) Stats(context.Context, *emptypb.Empty) (*StatsMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Stats not implemented")
+}
 func (UnimplementedXytServer) AddSchema(context.Context, *Schema) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddSchema not implemented")
 }
@@ -145,6 +161,24 @@ func RegisterXytServer(s grpc.ServiceRegistrar, srv XytServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&Xyt_ServiceDesc, srv)
+}
+
+func _Xyt_Stats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(XytServer).Stats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Xyt_Stats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(XytServer).Stats(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Xyt_AddSchema_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -208,6 +242,10 @@ var Xyt_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "server.Xyt",
 	HandlerType: (*XytServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Stats",
+			Handler:    _Xyt_Stats_Handler,
+		},
 		{
 			MethodName: "AddSchema",
 			Handler:    _Xyt_AddSchema_Handler,

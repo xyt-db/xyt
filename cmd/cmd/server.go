@@ -25,10 +25,14 @@ import (
 	"context"
 	"io"
 	"net"
+	"os"
+	"os/user"
+	"runtime"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"github.com/shirou/gopsutil/v4/host"
 	"github.com/spf13/cobra"
 	"github.com/xyt-db/xyt"
 	"github.com/xyt-db/xyt/server"
@@ -41,6 +45,8 @@ type Server struct {
 	server.UnimplementedXytServer
 
 	database *xyt.Database
+	hostname string
+	user     string
 }
 
 // serverCmd represents the server command
@@ -98,6 +104,21 @@ func init() {
 func newServer() (s *Server, err error) {
 	s = new(Server)
 	s.database, err = xyt.New()
+	if err != nil {
+		return
+	}
+
+	s.hostname, err = os.Hostname()
+	if err != nil {
+		return
+	}
+
+	u, err := user.Current()
+	if err != nil {
+		return
+	}
+
+	s.user = u.Username
 
 	return
 }
@@ -158,5 +179,34 @@ func (s *Server) Version(context.Context, *emptypb.Empty) (*server.VersionMessag
 		Ref:       Ref,
 		BuildUser: BuildUser,
 		BuiltOn:   BuiltOn,
+	}, nil
+}
+
+func (s *Server) Stats(context.Context, *emptypb.Empty) (*server.StatsMessage, error) {
+	uptime, err := host.Uptime()
+	if err != nil {
+		uptime = 0
+	}
+
+	ms := new(runtime.MemStats)
+	runtime.ReadMemStats(ms)
+
+	return &server.StatsMessage{
+		Host: &server.Host{
+			Hostname: s.hostname,
+			User:     s.user,
+			Uptime:   int64(uptime),
+			Memstats: &server.Memstats{
+				AllocatedBytes: ms.Alloc,
+				SystemBytes:    ms.Sys,
+			},
+			Pid: int64(os.Getpid()),
+		},
+		Version: &server.VersionMessage{
+			Ref:       Ref,
+			BuildUser: BuildUser,
+			BuiltOn:   BuiltOn,
+		},
+		Datasets: s.database.Datasets(),
 	}, nil
 }

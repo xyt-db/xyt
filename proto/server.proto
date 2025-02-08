@@ -8,11 +8,31 @@ option go_package = "github.com/xyt-db/xyt/server";
 package server;
 
 service Xyt {
+  rpc Stats(google.protobuf.Empty) returns (StatsMessage) {}
   rpc AddSchema(Schema) returns (google.protobuf.Empty) {}
   rpc Insert(stream Record) returns (google.protobuf.Empty) {}
   rpc Select(Query) returns (stream Record) {}
 
   rpc Version(google.protobuf.Empty) returns (VersionMessage) {}
+}
+
+message StatsMessage {
+  Host host = 1;
+  VersionMessage version = 2;
+  map<string, Schema> datasets = 3;
+}
+
+message Host {
+  string hostname = 1;
+  int64 uptime = 2;
+  string user = 3;
+  Memstats memstats = 4;
+  int64 pid = 5;
+}
+
+message Memstats {
+  uint64 AllocatedBytes = 1;
+  uint64 SystemBytes = 2;
 }
 
 enum Frequency {
