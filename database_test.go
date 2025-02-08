@@ -161,6 +161,7 @@ func TestDatabase_RetrieveRecords(t *testing.T) {
 		{"Nil Query errors", nil, 0, true},
 		{"Missing Dataset errors", &server.Query{}, 0, true},
 		{"Unknown Dataset errors", &server.Query{Dataset: "site-b"}, 0, true},
+		{"Querying latest data for an unsorted dataset errors", &server.Query{Dataset: "site-a", Time: new(server.Query_TimeLatest)}, 0, true},
 		{"Empty query returns all data", &server.Query{Dataset: "site-a"}, 100, false},
 		{"Setting end after time after the start returns nothing", &server.Query{Dataset: "site-a", Time: &server.Query_TimeRange{TimeRange: &server.TimeRange{Start: timestamppb.Now(), End: timestamppb.New(time.Now().Add(time.Hour))}}}, 0, false},
 		{"Setting the end time before data's added returns nothing", &server.Query{Dataset: "site-a", Time: &server.Query_TimeRange{TimeRange: &server.TimeRange{End: timestamppb.New(start)}}}, 0, false},
@@ -422,17 +423,17 @@ func benchmarkQuery(i int32, b *testing.B) {
 	}
 }
 
-func BenchmarkDatabase_Query_All1(b *testing.B)    { benchmarkQuery(1, b) }
-func BenchmarkDatabase_Query_All2(b *testing.B)    { benchmarkQuery(2, b) }
-func BenchmarkDatabase_Query_All4(b *testing.B)    { benchmarkQuery(4, b) }
-func BenchmarkDatabase_Query_All8(b *testing.B)    { benchmarkQuery(8, b) }
-func BenchmarkDatabase_Query_All16(b *testing.B)   { benchmarkQuery(16, b) }
-func BenchmarkDatabase_Query_All32(b *testing.B)   { benchmarkQuery(32, b) }
-func BenchmarkDatabase_Query_All64(b *testing.B)   { benchmarkQuery(64, b) }
-func BenchmarkDatabase_Query_All128(b *testing.B)  { benchmarkQuery(128, b) }
-func BenchmarkDatabase_Query_All256(b *testing.B)  { benchmarkQuery(256, b) }
-func BenchmarkDatabase_Query_All512(b *testing.B)  { benchmarkQuery(512, b) }
-func BenchmarkDatabase_Query_All1024(b *testing.B) { benchmarkQuery(1024, b) }
+func BenchmarkDatabase_Query_All1(b *testing.B)    { benchmarkQuery_All(1, b) }
+func BenchmarkDatabase_Query_All2(b *testing.B)    { benchmarkQuery_All(2, b) }
+func BenchmarkDatabase_Query_All4(b *testing.B)    { benchmarkQuery_All(4, b) }
+func BenchmarkDatabase_Query_All8(b *testing.B)    { benchmarkQuery_All(8, b) }
+func BenchmarkDatabase_Query_All16(b *testing.B)   { benchmarkQuery_All(16, b) }
+func BenchmarkDatabase_Query_All32(b *testing.B)   { benchmarkQuery_All(32, b) }
+func BenchmarkDatabase_Query_All64(b *testing.B)   { benchmarkQuery_All(64, b) }
+func BenchmarkDatabase_Query_All128(b *testing.B)  { benchmarkQuery_All(128, b) }
+func BenchmarkDatabase_Query_All256(b *testing.B)  { benchmarkQuery_All(256, b) }
+func BenchmarkDatabase_Query_All512(b *testing.B)  { benchmarkQuery_All(512, b) }
+func BenchmarkDatabase_Query_All1024(b *testing.B) { benchmarkQuery_All(1024, b) }
 
 func benchmarkQuery_All(i int32, b *testing.B) {
 	d, err := New()
@@ -477,17 +478,26 @@ func benchmarkQuery_All(i int32, b *testing.B) {
 	}
 }
 
-func BenchmarkDatabase_Query_Latest1(b *testing.B)    { benchmarkQuery(1, b) }
-func BenchmarkDatabase_Query_Latest2(b *testing.B)    { benchmarkQuery(2, b) }
-func BenchmarkDatabase_Query_Latest4(b *testing.B)    { benchmarkQuery(4, b) }
-func BenchmarkDatabase_Query_Latest8(b *testing.B)    { benchmarkQuery(8, b) }
-func BenchmarkDatabase_Query_Latest16(b *testing.B)   { benchmarkQuery(16, b) }
-func BenchmarkDatabase_Query_Latest32(b *testing.B)   { benchmarkQuery(32, b) }
-func BenchmarkDatabase_Query_Latest64(b *testing.B)   { benchmarkQuery(64, b) }
-func BenchmarkDatabase_Query_Latest128(b *testing.B)  { benchmarkQuery(128, b) }
-func BenchmarkDatabase_Query_Latest256(b *testing.B)  { benchmarkQuery(256, b) }
-func BenchmarkDatabase_Query_Latest512(b *testing.B)  { benchmarkQuery(512, b) }
-func BenchmarkDatabase_Query_Latest1024(b *testing.B) { benchmarkQuery(1024, b) }
+func BenchmarkDatabase_Query_Latest1(b *testing.B)   { benchmarkQuery_Latest(1, b) }
+func BenchmarkDatabase_Query_Latest2(b *testing.B)   { benchmarkQuery_Latest(2, b) }
+func BenchmarkDatabase_Query_Latest4(b *testing.B)   { benchmarkQuery_Latest(4, b) }
+func BenchmarkDatabase_Query_Latest8(b *testing.B)   { benchmarkQuery_Latest(8, b) }
+func BenchmarkDatabase_Query_Latest16(b *testing.B)  { benchmarkQuery_Latest(16, b) }
+func BenchmarkDatabase_Query_Latest32(b *testing.B)  { benchmarkQuery_Latest(32, b) }
+func BenchmarkDatabase_Query_Latest64(b *testing.B)  { benchmarkQuery_Latest(64, b) }
+func BenchmarkDatabase_Query_Latest128(b *testing.B) { benchmarkQuery_Latest(128, b) }
+func BenchmarkDatabase_Query_Latest256(b *testing.B) {
+	b.Skip("Ends up getting OOM Killed on development machines; not enough memory for tens of millions of records")
+	benchmarkQuery_Latest(256, b)
+}
+func BenchmarkDatabase_Query_Latest512(b *testing.B) {
+	b.Skip("Ends up getting OOM Killed on development machines; not enough memory for tens of millions of records")
+	benchmarkQuery_Latest(512, b)
+}
+func BenchmarkDatabase_Query_Latest1024(b *testing.B) {
+	b.Skip("Ends up getting OOM Killed on development machines; not enough memory for tens of millions of records")
+	benchmarkQuery_Latest(1024, b)
+}
 
 func benchmarkQuery_Latest(i int32, b *testing.B) {
 	d, err := New()
@@ -503,6 +513,7 @@ func benchmarkQuery_Latest(i int32, b *testing.B) {
 		YMax:                i * 10,
 		Frequency:           server.Frequency_F1000Hz,
 		LazyInitialAllocate: true,
+		SortOnInsert:        true,
 	})
 
 	ts := time.Now()
@@ -522,13 +533,19 @@ func benchmarkQuery_Latest(i int32, b *testing.B) {
 	b.ResetTimer()
 
 	for j := 0; j < b.N; j++ {
-		d.RetrieveRecords(&server.Query{
+		_, err = d.RetrieveRecords(&server.Query{
 			Dataset: "site-a",
 			X:       new(server.Query_XAll),
 			Y:       new(server.Query_YAll),
-			T:       new(server.Query_TAll),
-			Time:    &server.Query_TimeLatest{},
+			T: &server.Query_TValue{
+				TValue: 180,
+			},
+			Time: new(server.Query_TimeLatest),
 		})
+
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
