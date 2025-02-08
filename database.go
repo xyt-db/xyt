@@ -13,13 +13,13 @@ type Database struct {
 	mutx sync.Mutex
 
 	// data maps records as per:
-	//   [record.Dataset][record.X][record.Y][record.T][*record]
+	//   [record.Dataset][record.X][record.Y][]*record
 	// Where the final slice contains references to records
 	// sorted on their `When` value
 	//
 	// We don't really do much here with sharding or timestamps; certainly
 	// not yet
-	data map[string][][][][]*server.Record
+	data map[string][][][]*server.Record
 
 	// fields contains a union of the various fields a dataset contains
 	fields map[string]map[string]interface{}
@@ -31,7 +31,7 @@ type Database struct {
 // New creates a new Database and returns it for use
 func New() (d *Database, err error) {
 	d = new(Database)
-	d.data = make(map[string][][][][]*server.Record)
+	d.data = make(map[string][][][]*server.Record)
 	d.fields = make(map[string]map[string]interface{})
 	d.schemata = make(map[string]*server.Schema)
 
@@ -54,20 +54,16 @@ func (d *Database) CreateDataset(s *server.Schema) (err error) {
 
 	d.schemata[s.Dataset] = s
 
-	d.data[s.Dataset] = make([][][][]*server.Record, s.XMax-s.XMin)
+	d.data[s.Dataset] = make([][][]*server.Record, s.XMax-s.XMin)
 	for xi := range d.data[s.Dataset] {
-		d.data[s.Dataset][xi] = make([][][]*server.Record, s.YMax-s.YMin)
+		d.data[s.Dataset][xi] = make([][]*server.Record, s.YMax-s.YMin)
 
 		for yi := range d.data[s.Dataset][xi] {
-			d.data[s.Dataset][xi][yi] = make([][]*server.Record, 360)
-
-			for ti := range d.data[s.Dataset][xi][yi] {
-				switch s.LazyInitialAllocate {
-				case true:
-					d.data[s.Dataset][xi][yi][ti] = make([]*server.Record, 0)
-				default:
-					d.data[s.Dataset][xi][yi][ti] = make([]*server.Record, 0, frequencyToSize(s.Frequency))
-				}
+			switch s.LazyInitialAllocate {
+			case true:
+				d.data[s.Dataset][xi][yi] = make([]*server.Record, 0)
+			default:
+				d.data[s.Dataset][xi][yi] = make([]*server.Record, 0, frequencyToSize(s.Frequency))
 			}
 		}
 	}
@@ -88,14 +84,14 @@ func (d *Database) InsertRecord(r *server.Record) (err error) {
 	// and instead do allocations roughly once per second- which is at least more predictable
 	schema := d.schemata[r.Dataset]
 
-	if len(d.data[r.Dataset][r.X][r.Y][r.T]) <= cap(d.data[r.Dataset][r.X][r.Y][r.T]) {
-		d.data[r.Dataset][r.X][r.Y][r.T] = slices.Grow(d.data[r.Dataset][r.X][r.Y][r.T], frequencyToSize(schema.Frequency))
+	if len(d.data[r.Dataset][r.X][r.Y]) <= cap(d.data[r.Dataset][r.X][r.Y]) {
+		d.data[r.Dataset][r.X][r.Y] = slices.Grow(d.data[r.Dataset][r.X][r.Y], frequencyToSize(schema.Frequency))
 	}
 
-	d.data[r.Dataset][r.X][r.Y][r.T] = append(d.data[r.Dataset][r.X][r.Y][r.T], r)
+	d.data[r.Dataset][r.X][r.Y] = append(d.data[r.Dataset][r.X][r.Y], r)
 
 	if schema.SortOnInsert {
-		slices.SortFunc(d.data[r.Dataset][r.X][r.Y][r.T], func(a, b *server.Record) int {
+		slices.SortFunc(d.data[r.Dataset][r.X][r.Y], func(a, b *server.Record) int {
 			return a.Meta.When.AsTime().Compare(b.Meta.When.AsTime())
 		})
 	}
@@ -144,36 +140,29 @@ func (d *Database) RetrieveRecords(q *server.Query) (r []*server.Record, err err
 		yMax = schema.YMax
 	}
 
-	tMin := q.TMin
-	tMax := q.TMax
-	if tMax == 0 {
-		tMax = 360
-	}
-
 	r = make([]*server.Record, 0)
 
 	for x := xMin; x < xMax; x++ {
 		for y := yMin; y < yMax; y++ {
-			for t := tMin; t < tMax; t++ {
-				for _, record := range ds[x][y][t] {
-					ts := record.Meta.When.AsTime()
-					if ts.Before(start) {
-						continue
-					}
-
-					if ts.After(end) {
-						if schema.SortOnInsert {
-							goto next
-						}
-
-						continue
-					}
-
-					r = append(r, record)
+			for _, record := range ds[x][y] {
+				ts := record.Meta.When.AsTime()
+				if ts.Before(start) {
+					continue
 				}
-			next:
+
+				if ts.After(end) {
+					if schema.SortOnInsert {
+						goto next
+					}
+
+					continue
+				}
+
+				r = append(r, record)
 			}
+		next:
 		}
+
 	}
 
 	return
