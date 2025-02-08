@@ -1,7 +1,6 @@
 package xyt
 
 import (
-	"maps"
 	"slices"
 	"sync"
 	"time"
@@ -39,12 +38,24 @@ func New() (d *Database, err error) {
 	return
 }
 
-func (d *Database) Datasets() map[string]*server.Schema {
+func (d *Database) Datasets() (ds map[string]*server.Schema) {
 	// Make sure we're not passing about the actual, real schema or we
 	// run the risk of being able to change values that end up breaking things,
 	// like if someone decides to try and grow a dataset by changing the XMax
 	// and/or the YMax value which just ends up breaking querying
-	return maps.Clone(d.schemata)
+	ds = make(map[string]*server.Schema)
+	for k, v := range d.schemata {
+		ds[k] = &server.Schema{
+			Dataset:   v.Dataset,
+			Frequency: v.Frequency,
+			XMin:      v.XMin,
+			XMax:      v.XMax,
+			YMin:      v.YMin,
+			YMax:      v.YMax,
+		}
+	}
+
+	return
 }
 
 // CreateDataset takes a schema and creates the underlying data

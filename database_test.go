@@ -193,6 +193,36 @@ func TestDatabase_RetrieveRecords(t *testing.T) {
 	}
 }
 
+func TestDatabase_Datasets(t *testing.T) {
+	d, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ds := &server.Schema{
+		Dataset: "site-a",
+		XMin:    0,
+		XMax:    10,
+		YMin:    0,
+		YMax:    10,
+	}
+
+	err = d.CreateDataset(ds)
+	if err != nil {
+		// If this fails then there's no'ope
+		t.Fatal(err)
+	}
+
+	rcvd, ok := d.Datasets()["site-a"]
+	if !ok {
+		t.Fatal("Expected dataset is not in the datasets as returned from the Database")
+	}
+
+	if ds == rcvd {
+		t.Fatal("Both pointers point to the same memory location")
+	}
+}
+
 func BenchmarkDatabase_CreateDataset1(b *testing.B)    { benchmarkCreateDataset(1, b) }
 func BenchmarkDatabase_CreateDataset2(b *testing.B)    { benchmarkCreateDataset(2, b) }
 func BenchmarkDatabase_CreateDataset4(b *testing.B)    { benchmarkCreateDataset(4, b) }
