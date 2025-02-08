@@ -5,9 +5,52 @@ import (
 	"fmt"
 )
 
+type (
+	position              int8
+	coordRangeErrorReason int8
+)
+
+const (
+	positionUnknown position = iota
+	positionX
+	positionY
+	positionTheta
+)
+
+const (
+	coordRangeErrorReasonDefault coordRangeErrorReason = iota
+	coordRangeErrorReasonMinMax
+)
+
+func (p position) String() string {
+	switch p {
+	case positionX:
+		return "X"
+
+	case positionY:
+		return "Y"
+
+	case positionTheta:
+		return "T"
+
+	default:
+		return ""
+	}
+}
+
+func (c coordRangeErrorReason) String() string {
+	switch c {
+	case coordRangeErrorReasonMinMax:
+		return "Min value must be less than Max value"
+
+	default:
+		return ""
+	}
+}
+
 type PositionOutOfBoundsError struct {
 	dataset  string
-	position string
+	position position
 	min, max int32
 	received int32
 }
@@ -20,8 +63,8 @@ func (e PositionOutOfBoundsError) Error() string {
 
 type InvalidCoordRangeError struct {
 	dataset  string
-	position string
-	reason   string
+	position position
+	reason   coordRangeErrorReason
 }
 
 func (e InvalidCoordRangeError) Error() string {

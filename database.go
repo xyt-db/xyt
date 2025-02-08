@@ -202,7 +202,7 @@ func (d *Database) validateRecord(r *server.Record) error {
 	if r.X < schema.XMin || r.X > schema.XMax {
 		return PositionOutOfBoundsError{
 			dataset:  r.Dataset,
-			position: "X",
+			position: positionX,
 			min:      schema.XMin,
 			max:      schema.XMax,
 			received: r.X,
@@ -212,7 +212,7 @@ func (d *Database) validateRecord(r *server.Record) error {
 	if r.Y < schema.YMin || r.Y > schema.YMax {
 		return PositionOutOfBoundsError{
 			dataset:  r.Dataset,
-			position: "Y",
+			position: positionY,
 			min:      schema.YMin,
 			max:      schema.YMax,
 			received: r.Y,
@@ -222,7 +222,7 @@ func (d *Database) validateRecord(r *server.Record) error {
 	if r.T < 0 || r.T > 360 {
 		return PositionOutOfBoundsError{
 			dataset:  r.Dataset,
-			position: "T",
+			position: positionTheta,
 			min:      0,
 			max:      360,
 			received: r.T,
@@ -246,11 +246,11 @@ func (d *Database) validateSchema(s *server.Schema) error {
 	}
 
 	if s.XMin >= s.XMax {
-		return InvalidCoordRangeError{s.Dataset, "X", "XMin must be less than XMax"}
+		return InvalidCoordRangeError{s.Dataset, positionX, coordRangeErrorReasonMinMax}
 	}
 
 	if s.YMin >= s.YMax {
-		return InvalidCoordRangeError{s.Dataset, "X", "YMin must be less than YMax"}
+		return InvalidCoordRangeError{s.Dataset, positionY, coordRangeErrorReasonMinMax}
 	}
 
 	return nil
