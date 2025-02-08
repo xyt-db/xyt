@@ -281,6 +281,79 @@ func benchmarkInsertRecord(i int32, b *testing.B) {
 	}
 }
 
+func BenchmarkDatabase_InsertRecord_SortOnInsert1(b *testing.B) {
+	benchmarkInsertRecord_SortOnInsert(1, b)
+}
+func BenchmarkDatabase_InsertRecord_SortOnInsert2(b *testing.B) {
+	benchmarkInsertRecord_SortOnInsert(2, b)
+}
+func BenchmarkDatabase_InsertRecord_SortOnInsert4(b *testing.B) {
+	benchmarkInsertRecord_SortOnInsert(4, b)
+}
+func BenchmarkDatabase_InsertRecord_SortOnInsert8(b *testing.B) {
+	benchmarkInsertRecord_SortOnInsert(8, b)
+}
+func BenchmarkDatabase_InsertRecord_SortOnInsert16(b *testing.B) {
+	benchmarkInsertRecord_SortOnInsert(16, b)
+}
+func BenchmarkDatabase_InsertRecord_SortOnInsert32(b *testing.B) {
+	benchmarkInsertRecord_SortOnInsert(32, b)
+}
+func BenchmarkDatabase_InsertRecord_SortOnInsert64(b *testing.B) {
+	benchmarkInsertRecord_SortOnInsert(64, b)
+}
+func BenchmarkDatabase_InsertRecord_SortOnInsert128(b *testing.B) {
+	benchmarkInsertRecord_SortOnInsert(128, b)
+}
+func BenchmarkDatabase_InsertRecord_SortOnInsert256(b *testing.B) {
+	benchmarkInsertRecord_SortOnInsert(256, b)
+}
+func BenchmarkDatabase_InsertRecord_SortOnInsert512(b *testing.B) {
+	benchmarkInsertRecord_SortOnInsert(512, b)
+}
+func BenchmarkDatabase_InsertRecord_SortOnInsert1024(b *testing.B) {
+	benchmarkInsertRecord_SortOnInsert(1024, b)
+}
+
+func benchmarkInsertRecord_SortOnInsert(i int32, b *testing.B) {
+	d, err := New()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	x := 10 * i
+	y := 10 * i
+
+	err = d.CreateDataset(&server.Schema{
+		Dataset:      "site-a",
+		XMin:         0,
+		XMax:         x,
+		YMin:         0,
+		YMax:         y,
+		Frequency:    server.Frequency_F1000Hz,
+		SortOnInsert: true,
+	})
+
+	ts := timestamppb.Now()
+
+	b.ResetTimer()
+
+	for j := 0; j < b.N; j++ {
+		d.InsertRecord(&server.Record{
+			Meta: &server.Metadata{
+				When: ts,
+			},
+			Dataset: "site-a",
+			Name:    "a-value",
+			Value:   100,
+			X:       x / 2,
+			Y:       y / 2,
+			T:       180,
+		})
+
+	}
+}
+
 func BenchmarkDatabase_Query1(b *testing.B)    { benchmarkQuery(1, b) }
 func BenchmarkDatabase_Query2(b *testing.B)    { benchmarkQuery(2, b) }
 func BenchmarkDatabase_Query4(b *testing.B)    { benchmarkQuery(4, b) }
