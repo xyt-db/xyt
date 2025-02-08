@@ -22,16 +22,22 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
+	"errors"
 	"math/rand"
+	"time"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
+	"github.com/xyt-db/xyt/server"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // seedCmd represents the seed command
 var seedCmd = &cobra.Command{
 	Use:   "seed",
 	Short: "Add a load of data for messing about with",
-	Long:  `Add a load of data for messing about with`,
+	Long:  `Simulate a 1000x1000 unit warehouse, and then a robot going up and down some locations`,
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		addr, err := cmd.Flags().GetString("addr")
 		if err != nil {
@@ -44,23 +50,69 @@ var seedCmd = &cobra.Command{
 		}
 
 		ds := "superduperdataset"
-		err = c.addSchema(ds, 0, 256, 0, 256)
+		_, err = c.AddSchema(context.Background(), &server.Schema{
+			Dataset:             ds,
+			XMax:                1000,
+			YMax:                1000,
+			Frequency:           server.Frequency_F1000Hz,
+			SortOnInsert:        false,
+			LazyInitialAllocate: true,
+		})
 		if err != nil {
 			return
 		}
 
-		for x := int32(0); x < 256; x += 15 {
-			for y := int32(10); y < 256-75; y++ {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+
+		cc, err := c.Insert(ctx)
+		if err != nil {
+			return
+		}
+
+		defer func() {
+			_, cerr := cc.CloseAndRecv()
+			err = errors.Join(err, cerr)
+		}()
+
+		ts := time.Now().Add(0 - time.Hour*12)
+
+		bar := progressbar.Default(227_284)
+
+		for x := int32(0); x < 1000; x += 15 {
+			for y := int32(10); y < 1000-75; y++ {
 				for _, metric := range []string{
 					"temperature", "voltage", "network", "flurbles",
 				} {
-					// #nosec: G404
-					err = c.insert(ds, metric, rand.Float64()*30, x, y, 180)
+					err = cc.Send(&server.Record{
+						Meta: &server.Metadata{
+							When: timestamppb.New(ts),
+							Labels: map[string]string{
+								"robot": "robo-001",
+							},
+						},
+						X:       x,
+						Y:       y,
+						T:       180,
+						Dataset: ds,
+						Name:    metric,
+						// #nosec: G404
+						Value: rand.Float64() * 30,
+					})
+					if err != nil {
+						return
+					}
+
+					ts = ts.Add(time.Millisecond * time.Millisecond * 350)
+
+					err = bar.Add(1)
 					if err != nil {
 						return
 					}
 				}
 			}
+
+			ts = ts.Add(time.Minute * 5)
 		}
 
 		return

@@ -146,11 +146,6 @@ func (s *Server) Insert(cs grpc.ClientStreamingServer[server.Record, emptypb.Emp
 		if err != nil {
 			return
 		}
-
-		err = cs.SendMsg(new(emptypb.Empty))
-		if err != nil {
-			return
-		}
 	}
 }
 
