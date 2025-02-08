@@ -53,30 +53,31 @@ message Query {
   string dataset = 1;
 
   oneof x {
-    bool x_all = 12;
+    bool x_all = 13;
     sint32 x_value = 2;
     QueryRange x_range = 3;
   }
 
   oneof y {
-    bool y_all = 13;
+    bool y_all = 14;
     sint32 y_value = 4;
     QueryRange y_range = 5;
   }
 
   oneof t {
-    bool t_all = 14;
+    bool t_all = 15;
     sint32 t_value = 6;
     QueryRange t_range = 7;
   }
 
   oneof time {
     bool time_all = 8;
-    TimeRange time_range = 9;
+    bool time_latest = 9;
+    TimeRange time_range = 10;
   }
 
-  string index_key = 10;
-  string index_value = 11;
+  string index_key = 11;
+  string index_value = 12;
 }
 
 message QueryRange {

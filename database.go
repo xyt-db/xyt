@@ -121,12 +121,34 @@ func (d *Database) RetrieveRecords(q *server.Query) (r []*server.Record, err err
 	yMin, yMax := yRange(schema, q)
 	tMin, tMax, tAll := tRange(schema, q)
 
-	timeStart, timeEnd, timeAll := timeRange(q)
+	timeStart, timeEnd, timeAll, timeLatest := timeRange(q)
 
 	r = make([]*server.Record, 0)
 
 	for x := xMin; x < xMax; x++ {
 		for y := yMin; y < yMax; y++ {
+			// If we only want the latest matching record, there's no real
+			// need doing much beyond doing a backwards ranging of the data,
+			// finding the first (ie: most recent) record matching the theta
+			if timeLatest {
+				if !schema.SortOnInsert {
+					err = UnsortedDataset
+
+					return
+				}
+
+				for ri := len(ds[x][y]) - 1; ri >= 0; ri-- {
+					record := ds[x][y][ri]
+					if !tAll {
+						if record.T >= tMin && record.T < tMax {
+							r = append(r, record)
+
+							goto next
+						}
+					}
+				}
+			}
+
 			for _, record := range ds[x][y] {
 				if !timeAll {
 					ts := record.Meta.When.AsTime()
@@ -299,11 +321,15 @@ func tRange(_ *server.Schema, q *server.Query) (min, mat int32, all bool) {
 	}
 }
 
-func timeRange(q *server.Query) (start, end time.Time, all bool) {
+func timeRange(q *server.Query) (start, end time.Time, all, latest bool) {
 	switch v := q.Time.(type) {
 	case *server.Query_TimeRange:
-		return v.TimeRange.Start.AsTime(), v.TimeRange.End.AsTime(), false
+		return v.TimeRange.Start.AsTime(), v.TimeRange.End.AsTime(), false, false
 
+	case *server.Query_TimeLatest:
+		latest = true
+
+		return
 	default:
 		all = true
 

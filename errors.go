@@ -38,4 +38,5 @@ var (
 	MissingFieldNameError = errors.New("Missing Field Name value")
 	UnknownDatasetError   = errors.New("Unknown Dataset")
 	EmptySchemaError      = errors.New("Schema is empty, or otherwise nil")
+	UnsortedDataset       = errors.New("Selecting the latest record on an un-sorted dataset makes no sense")
 )

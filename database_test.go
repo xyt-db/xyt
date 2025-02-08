@@ -477,6 +477,61 @@ func benchmarkQuery_All(i int32, b *testing.B) {
 	}
 }
 
+func BenchmarkDatabase_Query_Latest1(b *testing.B)    { benchmarkQuery(1, b) }
+func BenchmarkDatabase_Query_Latest2(b *testing.B)    { benchmarkQuery(2, b) }
+func BenchmarkDatabase_Query_Latest4(b *testing.B)    { benchmarkQuery(4, b) }
+func BenchmarkDatabase_Query_Latest8(b *testing.B)    { benchmarkQuery(8, b) }
+func BenchmarkDatabase_Query_Latest16(b *testing.B)   { benchmarkQuery(16, b) }
+func BenchmarkDatabase_Query_Latest32(b *testing.B)   { benchmarkQuery(32, b) }
+func BenchmarkDatabase_Query_Latest64(b *testing.B)   { benchmarkQuery(64, b) }
+func BenchmarkDatabase_Query_Latest128(b *testing.B)  { benchmarkQuery(128, b) }
+func BenchmarkDatabase_Query_Latest256(b *testing.B)  { benchmarkQuery(256, b) }
+func BenchmarkDatabase_Query_Latest512(b *testing.B)  { benchmarkQuery(512, b) }
+func BenchmarkDatabase_Query_Latest1024(b *testing.B) { benchmarkQuery(1024, b) }
+
+func benchmarkQuery_Latest(i int32, b *testing.B) {
+	d, err := New()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	err = d.CreateDataset(&server.Schema{
+		Dataset:             "site-a",
+		XMin:                0,
+		XMax:                i * 10,
+		YMin:                0,
+		YMax:                i * 10,
+		Frequency:           server.Frequency_F1000Hz,
+		LazyInitialAllocate: true,
+	})
+
+	ts := time.Now()
+
+	d.InsertRecord(&server.Record{
+		Meta: &server.Metadata{
+			When: timestamppb.New(ts),
+		},
+		Dataset: "site-a",
+		Name:    "a-value",
+		Value:   100,
+		X:       5,
+		Y:       5,
+		T:       180,
+	})
+
+	b.ResetTimer()
+
+	for j := 0; j < b.N; j++ {
+		d.RetrieveRecords(&server.Query{
+			Dataset: "site-a",
+			X:       new(server.Query_XAll),
+			Y:       new(server.Query_YAll),
+			T:       new(server.Query_TAll),
+			Time:    &server.Query_TimeLatest{},
+		})
+	}
+}
+
 func randomStr() (s string) {
 	for i := 0; i < 16; i++ {
 		s += string(chars[r.Int()%len(chars)])
