@@ -115,43 +115,38 @@ func (d *Database) RetrieveRecords(q *server.Query) (r []*server.Record, err err
 		return nil, UnknownDatasetError
 	}
 
-	start := time.Time{}
-	end := time.Now()
-
-	if q.From.CheckValid() == nil {
-		start = q.From.AsTime()
-	}
-
-	if q.Until.CheckValid() == nil {
-		end = q.Until.AsTime()
-	}
-
 	schema := d.schemata[q.Dataset]
 
 	xMin, xMax := xRange(schema, q)
 	yMin, yMax := yRange(schema, q)
-	tMin, tMax := tRange(schema, q)
+	tMin, tMax, tAll := tRange(schema, q)
+
+	timeStart, timeEnd, timeAll := timeRange(q)
 
 	r = make([]*server.Record, 0)
 
 	for x := xMin; x < xMax; x++ {
 		for y := yMin; y < yMax; y++ {
 			for _, record := range ds[x][y] {
-				ts := record.Meta.When.AsTime()
-				if ts.Before(start) {
-					continue
-				}
-
-				if ts.After(end) {
-					if schema.SortOnInsert {
-						goto next
+				if !timeAll {
+					ts := record.Meta.When.AsTime()
+					if ts.Before(timeStart) {
+						continue
 					}
 
-					continue
+					if ts.After(timeEnd) {
+						if schema.SortOnInsert {
+							goto next
+						}
+
+						continue
+					}
 				}
 
-				if record.T < tMin || record.T >= tMax {
-					continue
+				if !tAll {
+					if record.T < tMin || record.T >= tMax {
+						continue
+					}
 				}
 
 				r = append(r, record)
@@ -288,18 +283,30 @@ func yRange(s *server.Schema, q *server.Query) (min, may int32) {
 	}
 }
 
-func tRange(s *server.Schema, q *server.Query) (min, mat int32) {
+func tRange(_ *server.Schema, q *server.Query) (min, mat int32, all bool) {
 	switch v := q.T.(type) {
 	case *server.Query_TAll:
-		return 0, 360
+		return 0, 360, true
 
 	case *server.Query_TValue:
-		return v.TValue, v.TValue + 1
+		return v.TValue, v.TValue + 1, false
 
 	case *server.Query_TRange:
-		return v.TRange.Start, v.TRange.End
+		return v.TRange.Start, v.TRange.End, false
 
 	default:
-		return 0, 360
+		return 0, 360, all
+	}
+}
+
+func timeRange(q *server.Query) (start, end time.Time, all bool) {
+	switch v := q.Time.(type) {
+	case *server.Query_TimeRange:
+		return v.TimeRange.Start.AsTime(), v.TimeRange.End.AsTime(), false
+
+	default:
+		all = true
+
+		return
 	}
 }

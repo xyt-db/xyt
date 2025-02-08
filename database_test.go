@@ -162,8 +162,8 @@ func TestDatabase_RetrieveRecords(t *testing.T) {
 		{"Missing Dataset errors", &server.Query{}, 0, true},
 		{"Unknown Dataset errors", &server.Query{Dataset: "site-b"}, 0, true},
 		{"Empty query returns all data", &server.Query{Dataset: "site-a"}, 100, false},
-		{"Setting end after time after the start returns nothing", &server.Query{Dataset: "site-a", From: timestamppb.Now()}, 0, false},
-		{"Setting the end time before data's added returns nothing", &server.Query{Dataset: "site-a", Until: timestamppb.New(start)}, 0, false},
+		{"Setting end after time after the start returns nothing", &server.Query{Dataset: "site-a", Time: &server.Query_TimeRange{TimeRange: &server.TimeRange{Start: timestamppb.Now(), End: timestamppb.New(time.Now().Add(time.Hour))}}}, 0, false},
+		{"Setting the end time before data's added returns nothing", &server.Query{Dataset: "site-a", Time: &server.Query_TimeRange{TimeRange: &server.TimeRange{End: timestamppb.New(start)}}}, 0, false},
 		{"Selecting a single column only returns that column", &server.Query{Dataset: "site-a", X: &server.Query_XValue{XValue: 3}}, 10, false},
 		{"Querying an X range returns a subset of data", &server.Query{Dataset: "site-a", X: &server.Query_XRange{XRange: &server.QueryRange{Start: 3, End: 5}}}, 20, false},
 		{"Querying the whole X range returns all data", &server.Query{Dataset: "site-a", X: &server.Query_XAll{}}, 100, false},
@@ -306,12 +306,18 @@ func BenchmarkDatabase_InsertRecord_SortOnInsert128(b *testing.B) {
 	benchmarkInsertRecord_SortOnInsert(128, b)
 }
 func BenchmarkDatabase_InsertRecord_SortOnInsert256(b *testing.B) {
+	b.Skip("Ends up getting OOM Killed on development machines; not enough memory for tens of millions of records")
+
 	benchmarkInsertRecord_SortOnInsert(256, b)
 }
 func BenchmarkDatabase_InsertRecord_SortOnInsert512(b *testing.B) {
+	b.Skip("Ends up getting OOM Killed on development machines; not enough memory for tens of millions of records")
+
 	benchmarkInsertRecord_SortOnInsert(512, b)
 }
 func BenchmarkDatabase_InsertRecord_SortOnInsert1024(b *testing.B) {
+	b.Skip("Ends up getting OOM Killed on development machines; not enough memory for tens of millions of records")
+
 	benchmarkInsertRecord_SortOnInsert(1024, b)
 }
 
@@ -383,8 +389,8 @@ func benchmarkQuery(i int32, b *testing.B) {
 	})
 
 	ts := time.Now()
-	from := timestamppb.New(ts.Add(-time.Minute))
-	to := timestamppb.New(ts.Add(time.Minute))
+	start := timestamppb.New(ts.Add(-time.Minute))
+	end := timestamppb.New(ts.Add(time.Minute))
 
 	d.InsertRecord(&server.Record{
 		Meta: &server.Metadata{
@@ -406,8 +412,67 @@ func benchmarkQuery(i int32, b *testing.B) {
 			X:       new(server.Query_XAll),
 			Y:       new(server.Query_YAll),
 			T:       new(server.Query_TAll),
-			From:    from,
-			Until:   to,
+			Time: &server.Query_TimeRange{
+				TimeRange: &server.TimeRange{
+					Start: start,
+					End:   end,
+				},
+			},
+		})
+	}
+}
+
+func BenchmarkDatabase_Query_All1(b *testing.B)    { benchmarkQuery(1, b) }
+func BenchmarkDatabase_Query_All2(b *testing.B)    { benchmarkQuery(2, b) }
+func BenchmarkDatabase_Query_All4(b *testing.B)    { benchmarkQuery(4, b) }
+func BenchmarkDatabase_Query_All8(b *testing.B)    { benchmarkQuery(8, b) }
+func BenchmarkDatabase_Query_All16(b *testing.B)   { benchmarkQuery(16, b) }
+func BenchmarkDatabase_Query_All32(b *testing.B)   { benchmarkQuery(32, b) }
+func BenchmarkDatabase_Query_All64(b *testing.B)   { benchmarkQuery(64, b) }
+func BenchmarkDatabase_Query_All128(b *testing.B)  { benchmarkQuery(128, b) }
+func BenchmarkDatabase_Query_All256(b *testing.B)  { benchmarkQuery(256, b) }
+func BenchmarkDatabase_Query_All512(b *testing.B)  { benchmarkQuery(512, b) }
+func BenchmarkDatabase_Query_All1024(b *testing.B) { benchmarkQuery(1024, b) }
+
+func benchmarkQuery_All(i int32, b *testing.B) {
+	d, err := New()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	err = d.CreateDataset(&server.Schema{
+		Dataset:             "site-a",
+		XMin:                0,
+		XMax:                i * 10,
+		YMin:                0,
+		YMax:                i * 10,
+		Frequency:           server.Frequency_F1000Hz,
+		LazyInitialAllocate: true,
+	})
+
+	ts := time.Now()
+
+	d.InsertRecord(&server.Record{
+		Meta: &server.Metadata{
+			When: timestamppb.New(ts),
+		},
+		Dataset: "site-a",
+		Name:    "a-value",
+		Value:   100,
+		X:       5,
+		Y:       5,
+		T:       180,
+	})
+
+	b.ResetTimer()
+
+	for j := 0; j < b.N; j++ {
+		d.RetrieveRecords(&server.Query{
+			Dataset: "site-a",
+			X:       new(server.Query_XAll),
+			Y:       new(server.Query_YAll),
+			T:       new(server.Query_TAll),
+			Time:    &server.Query_TimeAll{},
 		})
 	}
 }
