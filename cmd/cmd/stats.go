@@ -72,9 +72,14 @@ var statsCmd = &cobra.Command{
 		fmt.Println()
 
 		for name, schema := range stats.Datasets {
-			fmt.Println(name)
-			pretty.Print(schema)
-			fmt.Println()
+			fmt.Printf("Dataset: %q\n", name)
+
+			_, err = pretty.Print(schema)
+			if err != nil {
+				return
+			}
+
+			fmt.Printf("\n\n")
 		}
 
 		return

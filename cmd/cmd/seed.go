@@ -54,6 +54,7 @@ var seedCmd = &cobra.Command{
 				for _, metric := range []string{
 					"temperature", "voltage", "network", "flurbles",
 				} {
+					// #nosec: G404
 					err = c.insert(ds, metric, rand.Float64()*30, x, y, 180)
 					if err != nil {
 						return

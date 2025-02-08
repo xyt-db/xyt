@@ -195,7 +195,8 @@ func (s *Server) Stats(context.Context, *emptypb.Empty) (*server.StatsMessage, e
 		Host: &server.Host{
 			Hostname: s.hostname,
 			User:     s.user,
-			Uptime:   int64(uptime),
+			// #nosec: G115
+			Uptime: int64(uptime),
 			Memstats: &server.Memstats{
 				AllocatedBytes: ms.Alloc,
 				SystemBytes:    ms.Sys,
