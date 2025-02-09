@@ -26,6 +26,9 @@ type Database struct {
 
 	// schemata maps the underlying ranges and sizes for a particular dataset
 	schemata map[string]*server.Schema
+
+	// stats holds varius dataset stats
+	stats map[string]*Stats
 }
 
 // New creates a new Database and returns it for use
@@ -34,6 +37,7 @@ func New() (d *Database, err error) {
 	d.data = make(map[string][][][]*server.Record)
 	d.fields = make(map[string]map[string]interface{})
 	d.schemata = make(map[string]*server.Schema)
+	d.stats = make(map[string]*Stats)
 
 	return
 }
@@ -58,6 +62,10 @@ func (d *Database) Datasets() (ds map[string]*server.Schema) {
 	return
 }
 
+func (d *Database) Stats() map[string]*Stats {
+	return d.stats
+}
+
 // CreateDataset takes a schema and creates the underlying data
 func (d *Database) CreateDataset(s *server.Schema) (err error) {
 	err = d.validateSchema(s)
@@ -73,6 +81,7 @@ func (d *Database) CreateDataset(s *server.Schema) (err error) {
 	defer d.mutx.Unlock()
 
 	d.schemata[s.Dataset] = s
+	d.stats[s.Dataset] = NewStats()
 
 	d.data[s.Dataset] = make([][][]*server.Record, s.XMax-s.XMin)
 	for xi := range d.data[s.Dataset] {
@@ -121,6 +130,9 @@ func (d *Database) InsertRecord(r *server.Record) (err error) {
 	}
 
 	d.fields[r.Dataset][r.Name] = nil
+
+	// Stats are eventually consistent
+	go d.stats[r.Dataset].AddRecord(r)
 
 	return
 }

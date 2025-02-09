@@ -19,7 +19,7 @@ service Xyt {
 message StatsMessage {
   Host host = 1;
   VersionMessage version = 2;
-  map<string, Schema> datasets = 3;
+  map<string, SchemaStats> datasets = 3;
 }
 
 message Host {
@@ -67,6 +67,13 @@ message Schema {
   // map, with a high range of different theta values, then you want to set
   // this to false so performance is predictable
   bool lazy_initial_allocate = 8;
+}
+
+message SchemaStats {
+  Schema schema = 1;
+  uint32 records = 2;
+  uint64 total_size = 3;
+  uint64 average_size = 4;
 }
 
 message Query {

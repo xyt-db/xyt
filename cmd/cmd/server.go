@@ -183,8 +183,22 @@ func (s *Server) Stats(context.Context, *emptypb.Empty) (*server.StatsMessage, e
 		uptime = 0
 	}
 
+	stats := s.database.Stats()
+
 	ms := new(runtime.MemStats)
 	runtime.ReadMemStats(ms)
+
+	sm := make(map[string]*server.SchemaStats)
+	for ds, schema := range s.database.Datasets() {
+		ss := stats[ds]
+
+		sm[ds] = &server.SchemaStats{
+			Schema:      schema,
+			Records:     ss.RecordCount,
+			TotalSize:   ss.TotalSize,
+			AverageSize: ss.TotalSize / uint64(ss.RecordCount),
+		}
+	}
 
 	return &server.StatsMessage{
 		Host: &server.Host{
@@ -203,6 +217,6 @@ func (s *Server) Stats(context.Context, *emptypb.Empty) (*server.StatsMessage, e
 			BuildUser: BuildUser,
 			BuiltOn:   BuiltOn,
 		},
-		Datasets: s.database.Datasets(),
+		Datasets: sm,
 	}, nil
 }

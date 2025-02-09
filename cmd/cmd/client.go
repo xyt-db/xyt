@@ -141,7 +141,10 @@ func (c client) query(dataset string) (err error) {
 			return
 		}
 
-		json.NewEncoder(os.Stdout).Encode(record)
+		err = json.NewEncoder(os.Stdout).Encode(record)
+		if err != nil {
+			return
+		}
 	}
 }
 
