@@ -22,6 +22,8 @@ const (
 	coordRangeErrorReasonMinMax
 )
 
+// String fulfills the fmt.Stringer interface for the
+// position enum
 func (p position) String() string {
 	switch p {
 	case positionX:
@@ -38,6 +40,8 @@ func (p position) String() string {
 	}
 }
 
+// String fulfills the fmt.Stringer interface for the
+// coordRangeErrorReason enum
 func (c coordRangeErrorReason) String() string {
 	switch c {
 	case coordRangeErrorReasonMinMax:
@@ -48,6 +52,9 @@ func (c coordRangeErrorReason) String() string {
 	}
 }
 
+// PositionOutOfBoundsError is returned when trying to insert a
+// Record to a set of coords that don't fit within the set bounds
+// of a Dataset
 type PositionOutOfBoundsError struct {
 	dataset  string
 	position position
@@ -55,18 +62,23 @@ type PositionOutOfBoundsError struct {
 	received int32
 }
 
+// Error returns the error string
 func (e PositionOutOfBoundsError) Error() string {
 	return fmt.Sprintf("invalid %s position for %s: expected between %d and %d, yet received %d",
 		e.position, e.dataset, e.min, e.max, e.received,
 	)
 }
 
+// InvalidCoordRangeError is returned when trying to create a Dataset
+// with absurd coordinates, such as where the start position of an axis
+// is a higher number than the end position
 type InvalidCoordRangeError struct {
 	dataset  string
 	position position
 	reason   coordRangeErrorReason
 }
 
+// Error returns the error string
 func (e InvalidCoordRangeError) Error() string {
 	return fmt.Sprintf("invalid %s for %s: %s",
 		e.position, e.dataset, e.reason,

@@ -8,7 +8,15 @@ import (
 	"github.com/xyt-db/xyt/server"
 )
 
-// A Database provides access to various xyt stuff
+// A Database is the top-level *thing* that xyt exposes.
+// It contains operations around various Datasets, which are locations mapped
+// to a a set of coordinates. These locations can be pre-allocated in such a
+// way to avoid frequent re-allocations, and these locations can be sorted by
+// time on insert to aid in querying.
+//
+// Database operations are thread-safe; all of the interesting stuff is either
+// gated with mutexes (inserts, etc.), or are eventually consistent (updating
+// internal metrics).
 type Database struct {
 	mutx sync.Mutex
 
@@ -31,7 +39,9 @@ type Database struct {
 	stats map[string]*Stats
 }
 
-// New creates a new Database and returns it for use
+// New creates a new Database and returns it for use and takes no tunables.
+//
+// Most of the fun stuff lives elsewhere, such as creating datasets.
 func New() (d *Database, err error) {
 	d = new(Database)
 	d.data = make(map[string][][][]*server.Record)
@@ -42,6 +52,15 @@ func New() (d *Database, err error) {
 	return
 }
 
+// Datasets returns a copy of all of the Dataset Schema known about in this database
+//
+// It purposefully returns clones of the underlying schemas, rather than the actual
+// references to real schemata. The reason for this is twofold:
+//
+//  1. We want to gate against schemas being accidentally deallocated, which will
+//     absolutely knacker all subsequent operations; and
+//  2. We want to gate against developers trying to resize datasets by changing values
+//     in this data. Xyt Databases don't work like that.
 func (d *Database) Datasets() (ds map[string]*server.Schema) {
 	// Make sure we're not passing about the actual, real schema or we
 	// run the risk of being able to change values that end up breaking things,
@@ -62,11 +81,31 @@ func (d *Database) Datasets() (ds map[string]*server.Schema) {
 	return
 }
 
+// Stats maps dataset names with things like record counts, and memory size
+// for later reporting.
+//
+// This is handy data for, say, capacity planning
 func (d *Database) Stats() map[string]*Stats {
 	return d.stats
 }
 
-// CreateDataset takes a schema and creates the underlying data
+// CreateDataset takes a schema and pre-allocates a load of memory for that dataset.
+//
+// Schemas contain a number of handy tunables:
+//
+//	Frequency: we want to avoid having to grow/ reallocate data more than once per second;
+//		   frequency allows us to limit this by growing the capacity of underlying data
+//		   to cover the amount of data we reckon we'll insert in a second
+//	SortOnInsert: when true, records are inserted into a dataset in ascending order, based
+//		      on the `When` value. This greatly improves query time, but slows inserts
+//		      on large datasets. The package benchmarks will show the actual effect
+//	LazyInitialAllocate: for datasets where only a subset of locations are likely to be used,
+//			     setting this to true can limit the amount of zero pages allocated
+//			     to a xyt server, which is handy on systems with limited memory
+//
+// A sensible norm would be to set the frequency to 1 - 10hz, setting SortOnInsert to true, and
+// LazyInitialAllocate to false; this will give you a nice, quick, trim dataset with good
+// insert and query performance.
 func (d *Database) CreateDataset(s *server.Schema) (err error) {
 	err = d.validateSchema(s)
 	if err != nil {
@@ -81,7 +120,7 @@ func (d *Database) CreateDataset(s *server.Schema) (err error) {
 	defer d.mutx.Unlock()
 
 	d.schemata[s.Dataset] = s
-	d.stats[s.Dataset] = NewStats()
+	d.stats[s.Dataset] = newStats()
 
 	d.data[s.Dataset] = make([][][]*server.Record, s.XMax-s.XMin)
 	for xi := range d.data[s.Dataset] {
@@ -100,6 +139,15 @@ func (d *Database) CreateDataset(s *server.Schema) (err error) {
 	return
 }
 
+// InsertRecord takes a record, validates it for things like (X,Y) boundaries,
+// required fields, and whether the underlying dataset exists, and then inserts
+// it into the Database.
+//
+// This function will also grow underlying datasets according to the expected
+// frequency in order to limit allocations.
+//
+// If the Dataset has been created with SortOnInsert=true, this function will also
+// ensure data is stored in the correct order.
 func (d *Database) InsertRecord(r *server.Record) (err error) {
 	err = d.validateRecord(r)
 	if err != nil {
@@ -132,11 +180,13 @@ func (d *Database) InsertRecord(r *server.Record) (err error) {
 	d.fields[r.Dataset][r.Name] = nil
 
 	// Stats are eventually consistent
-	go d.stats[r.Dataset].AddRecord(r)
+	go d.stats[r.Dataset].addRecord(r)
 
 	return
 }
 
+// RetrieveRecords accepts a query and returns matching Records, erroing
+// if the query is invalid.
 func (d *Database) RetrieveRecords(q *server.Query) (r []*server.Record, err error) {
 	if q == nil || q.Dataset == "" {
 		return nil, MissingDatasetError
@@ -155,20 +205,20 @@ func (d *Database) RetrieveRecords(q *server.Query) (r []*server.Record, err err
 
 	timeStart, timeEnd, timeAll, timeLatest := timeRange(q)
 
+	// If we only want the latest matching record, there's no real
+	// need doing much beyond doing a backwards ranging of the data,
+	// finding the first (ie: most recent) record matching the theta
+	if timeLatest && !schema.SortOnInsert {
+		err = UnsortedDataset
+
+		return
+	}
+
 	r = make([]*server.Record, 0)
 
 	for x := xMin; x < xMax; x++ {
 		for y := yMin; y < yMax; y++ {
-			// If we only want the latest matching record, there's no real
-			// need doing much beyond doing a backwards ranging of the data,
-			// finding the first (ie: most recent) record matching the theta
 			if timeLatest {
-				if !schema.SortOnInsert {
-					err = UnsortedDataset
-
-					return
-				}
-
 				for ri := len(ds[x][y]) - 1; ri >= 0; ri-- {
 					record := ds[x][y][ri]
 					if !tAll {
