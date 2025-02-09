@@ -24,6 +24,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"io"
 	"math/rand"
 	"time"
 
@@ -62,7 +63,7 @@ var seedCmd = &cobra.Command{
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
 
 		cc, err := c.Insert(ctx)
@@ -75,44 +76,52 @@ var seedCmd = &cobra.Command{
 			err = errors.Join(err, cerr)
 		}()
 
-		ts := time.Now().Add(0 - time.Hour*12)
+		ts := time.Now().Add(0 - time.Hour*24*30)
 
-		bar := progressbar.Default(227_284)
+		bar := progressbar.Default(2_272_840)
 
-		for x := int32(0); x < 1000; x += 15 {
-			for y := int32(10); y < 1000-75; y++ {
-				for _, metric := range []string{
-					"temperature", "voltage", "network", "flurbles",
-				} {
-					err = cc.Send(&server.Record{
-						Meta: &server.Metadata{
-							When: timestamppb.New(ts),
-							Labels: map[string]string{
-								"robot": "robo-001",
+		for i := 0; i < 10; i++ {
+			for x := int32(0); x < 1000; x += 15 {
+				for y := int32(10); y < 1000-75; y++ {
+					for _, metric := range []string{
+						"temperature", "voltage", "network", "flurbles",
+					} {
+						err = cc.Send(&server.Record{
+							Meta: &server.Metadata{
+								When: timestamppb.New(ts),
+								Labels: map[string]string{
+									"robot": "robo-001",
+								},
 							},
-						},
-						X:       x,
-						Y:       y,
-						T:       180,
-						Dataset: ds,
-						Name:    metric,
-						// #nosec: G404
-						Value: rand.Float64() * 30,
-					})
-					if err != nil {
-						return
-					}
+							X:       x,
+							Y:       y,
+							T:       180,
+							Dataset: ds,
+							Name:    metric,
+							// #nosec: G404
+							Value: rand.Float64() * 30,
+						})
+						if err != nil {
+							if err == io.EOF {
+								err = nil
+							}
 
-					ts = ts.Add(time.Millisecond * time.Millisecond * 350)
+							return
+						}
 
-					err = bar.Add(1)
-					if err != nil {
-						return
+						ts = ts.Add(time.Millisecond * time.Millisecond * 350)
+
+						err = bar.Add(1)
+						if err != nil {
+							return
+						}
 					}
 				}
+
+				ts = ts.Add(time.Minute * 5)
 			}
 
-			ts = ts.Add(time.Minute * 5)
+			ts = ts.Add(time.Hour)
 		}
 
 		return

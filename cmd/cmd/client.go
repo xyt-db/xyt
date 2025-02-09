@@ -23,9 +23,10 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/xyt-db/xyt/server"
@@ -140,7 +141,7 @@ func (c client) query(dataset string) (err error) {
 			return
 		}
 
-		fmt.Printf("%#v\n", record)
+		json.NewEncoder(os.Stdout).Encode(record)
 	}
 }
 

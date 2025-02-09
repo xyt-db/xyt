@@ -309,7 +309,7 @@ func xRange(s *server.Schema, q *server.Query) (min, max int32) {
 	}
 }
 
-func yRange(s *server.Schema, q *server.Query) (min, may int32) {
+func yRange(s *server.Schema, q *server.Query) (min, max int32) {
 	switch v := q.Y.(type) {
 	case *server.Query_YAll:
 		return s.YMin, s.YMax
@@ -325,7 +325,7 @@ func yRange(s *server.Schema, q *server.Query) (min, may int32) {
 	}
 }
 
-func tRange(_ *server.Schema, q *server.Query) (min, mat int32, all bool) {
+func tRange(_ *server.Schema, q *server.Query) (min, max int32, all bool) {
 	switch v := q.T.(type) {
 	case *server.Query_TAll:
 		return 0, 360, true
