@@ -14,6 +14,7 @@ type Stats struct {
 	locker      *sync.Mutex
 	RecordCount uint32
 	TotalSize   uint64
+	Fields      []string
 }
 
 func newStats() *Stats {
@@ -30,4 +31,13 @@ func (s *Stats) addRecord(r *server.Record) {
 
 	s.RecordCount++
 	s.TotalSize += (uint64(unsafe.Sizeof(*r)) + uint64(unsafe.Sizeof(*r.Meta)))
+
+	for _, f := range s.Fields {
+		if r.Name == f {
+			return
+		}
+	}
+
+	// If we get here, update field names
+	s.Fields = append(s.Fields, r.Name)
 }

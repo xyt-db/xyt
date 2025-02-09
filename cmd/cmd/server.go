@@ -197,6 +197,7 @@ func (s *Server) Stats(context.Context, *emptypb.Empty) (*server.StatsMessage, e
 			Records:     ss.RecordCount,
 			TotalSize:   ss.TotalSize,
 			AverageSize: ss.TotalSize / uint64(ss.RecordCount),
+			Fields:      ss.Fields,
 		}
 	}
 

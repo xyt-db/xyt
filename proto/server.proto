@@ -74,6 +74,7 @@ message SchemaStats {
   uint32 records = 2;
   uint64 total_size = 3;
   uint64 average_size = 4;
+  repeated string fields = 5;
 }
 
 message Query {
