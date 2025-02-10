@@ -161,7 +161,7 @@ func (d *Database) InsertRecord(r *server.Record) (err error) {
 	// and instead do allocations roughly once per second- which is at least more predictable
 	schema := d.schemata[r.Dataset]
 
-	if len(d.data[r.Dataset][r.X][r.Y]) <= cap(d.data[r.Dataset][r.X][r.Y]) {
+	if len(d.data[r.Dataset][r.X][r.Y]) >= cap(d.data[r.Dataset][r.X][r.Y]) {
 		d.data[r.Dataset][r.X][r.Y] = slices.Grow(d.data[r.Dataset][r.X][r.Y], frequencyToSize(schema.Frequency))
 	}
 
